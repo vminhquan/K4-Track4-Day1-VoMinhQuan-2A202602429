@@ -242,6 +242,7 @@ def run_experiment(cfg: dict, data: dict, verbose: bool = True) -> dict:
         peak_mem_MB=(torch.cuda.max_memory_allocated() / 2**20) if dev_type == "cuda" else float("nan"),
         diverged=diverged,
         steps_per_epoch=steps_per_epoch,
+        device=dev_type,
     )
     return dict(cfg=copy.deepcopy(cfg), history=hist, summary=summary, best_state=best_state)
 

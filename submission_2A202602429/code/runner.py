@@ -50,23 +50,28 @@ class Runner:
             r["best_state"] = None
         return r
 
-    def _find_same(self, cfg: dict):
+    def _find_same(self, cfg: dict, require_device: str | None = None):
+        # require_device: chỉ dùng lại kết quả chạy trên đúng loại thiết bị (vd. "cuda" cho thí nghiệm AMP,
+        # vì thời gian/bộ nhớ đo trên CPU không so được với GPU)
         key = train_key(cfg)
+        ok = lambda r: require_device is None or r["summary"].get("device") == require_device
         for r in self.results.values():
-            if train_key(r["cfg"]) == key:
+            if train_key(r["cfg"]) == key and ok(r):
                 return r
-        for p in self.results_dir.glob("*.json"):
+        own = self.results_dir / f"{cfg['exp_id']}.json"  # ưu tiên file của chính exp_id này
+        for p in [own] * own.exists() + sorted(self.results_dir.glob("*.json")):
             with open(p, encoding="utf-8") as f:
-                if train_key(json.load(f)["cfg"]) == key:
-                    return self._load(p.stem)
+                r = json.load(f)
+            if train_key(r["cfg"]) == key and ok(r):
+                return self._load(p.stem)
         return None
 
     # ---------- API ----------
-    def run(self, cfg: dict, notes: str = "") -> dict:
+    def run(self, cfg: dict, notes: str = "", require_device: str | None = None) -> dict:
         cfg = {**DEFAULT_CFG, **cfg}
         cfg["hidden"] = tuple(cfg["hidden"])
         exp_id = cfg["exp_id"]
-        res = None if self.force else self._find_same(cfg)
+        res = None if self.force else self._find_same(cfg, require_device)
         reused = res is not None
         if res is None:
             res = run_experiment(cfg, self.data, verbose=self.verbose)
